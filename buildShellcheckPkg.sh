@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
 # Build Shellcheck Package installer
 
@@ -27,7 +27,7 @@ echo
 echo "Do NOT run this on your production machine, unless you are really sure."
 echo
 
-read -r -p "Are you sure you want to continue? (Y/n)" reply
+read -r -p "Are you sure you want to continue? (Y/n) " reply
 
 if [[ $reply != 'Y' ]]; then
     echo "Cancelling..."
@@ -40,15 +40,6 @@ if [[ $EUID -eq 0 ]]; then
     exit 1
 fi
 
-# requires Xcode or Developer Command line tools
-if ! xcode-select -p ; then
-    echo "this script requires Xcode or the Developer CLI tools to be installed"
-    echo "When prompted, enter your password to install the tools."
-    echo
-    
-    sudo xcode-select --install
-fi
-
 # requires brew
 brew="/usr/local/bin/brew"
 if [[ ! -x $brew ]]; then
@@ -59,26 +50,40 @@ if [[ ! -x $brew ]]; then
     
     # install brew, command from https://brew.sh
     ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+else
+    echo
+    echo "found brew at '$brew'"
+    echo
 fi
+
+# installing brew will also take care of developer command line tools
 
 # requires cabal
 cabal="/usr/local/bin/cabal"
-if [[ -x "$cabal" ]]; then
+if [[ ! -x "$cabal" ]]; then
     echo
     echo "Installing ghc cabal"
     echo 
     
-    "$brew" install ghc cabal
+    "$brew" install ghc cabal-install
+else
+    echo
+    echo "found cabal at '$cabal'"
+    echo
 fi
 
 # requires pandoc
 pandoc="/usr/local/bin/pandoc"
-if [[ -x "$pandoc" ]]; then
+if [[ ! -x "$pandoc" ]]; then
     echo
     echo "Installing pandoc"
     echo 
     
     "$brew" install pandoc
+else
+    echo
+    echo "found pandoc at '$pandoc'"
+    echo
 fi
 
 # setup the directories
@@ -102,48 +107,74 @@ if [[ ! -d "$payloaddir" ]]; then
 fi
 
 # clone shellcheck repo
-cd "$builddir" || exit 2
+cd "$downloaddir" || exit 2
 
 echo
 echo "cloning shellcheck repo"
 echo
 
-git clone "https://github.com/koalaman/shellcheck.git"
-shellcheckdir="$builddir/shellcheck"
+shellcheckdir="$downloaddir/shellcheck"
+
+if [[ -d "$shellcheckdir" ]]; then
+    cd "$shellcheckdir" || exit 2
+    git fetch
+else
+    git clone "https://github.com/koalaman/shellcheck.git"
+fi
 
 if [[ ! -d "$shellcheckdir" ]]; then
     echo
-    echo "something went wrong cloning shellcheck repo"
+    echo "something went wrong cloning or updating shellcheck repo"
     
     exit 1
+fi
+
+# update cabal packages
+if ! "$cabal" update; then
+    echo "could not update cabal packages"
+    exit 3
 fi
 
 # build shellcheck
 cd "$shellcheckdir" || exit 2
 "$cabal" install --bindir="$builddir"
 
+shellcheck="$builddir/shellcheck"
+if [[ ! -x $shellcheck ]]; then
+    echo "could not build or find shellcheck binary"
+    exit 4
+fi
+
 # get the version
-version="$builddir/shellcheck --version | awk '/version:/ {print \$2}'"
+version=$("$shellcheck" --version | awk '/version:/ {print $2}')
 
 # build man page
 "$pandoc" -s -f markdown-smart -t man "$shellcheckdir"/shellcheck.1.md -o "$builddir"/shellcheck.1
 
-# assemble to payload
+# assemble the payload
 
 # base dir is /usr
 mkdir -p "$payloaddir/local/bin"
-cp "$builddir/shellcheck" "$payloaddir/local/bin/"
+cp "$shellcheck" "$payloaddir/local/bin/"
 mkdir -p "$payloaddir/share/man/man1"
 cp "$builddir/shellcheck.1" "$payloaddir/share/man/man1/"
+
+
+# build the pkg
+
+echo "building the package"
+pkgpath="$builddir/$pkgname-$version.pkg"
 
 pkgbuild --root "$payloaddir" \
          --install-location "$install_location" \
          --identifier "$identifier" \
          --version "$version" \
-         "$builddir/$pkgname-$version.pkg"
+         "$pkgpath"
 
 # reveal pkg in Finder
-open -R "$builddir/$pkgname-$version.pkg"
+if [[ -e "$pkgpath" ]]; then
+    open -R "$pkgpath"
+fi
 
 
 
