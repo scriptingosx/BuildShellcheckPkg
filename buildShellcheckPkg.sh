@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
 
@@ -27,22 +27,23 @@ echo
 echo "Do NOT run this on your production machine, unless you are really sure."
 echo
 
-read -r -p "Are you sure you want to continue? (Y/n) " reply
+echo "Are you sure you want to continue? (Y/n) "
+read -r reply
 
-if [[ $reply != 'Y' ]]; then
+if [ "$reply" != 'Y' ]; then
     echo "Cancelling..."
     exit 1
 fi
 
 # cancel if running as root
-if [[ $EUID -eq 0 ]]; then
+if [ "$(id -u)" -eq 0 ]; then
     echo "this script should NOT run as root."
     exit 1
 fi
 
 # requires brew
 brew="/usr/local/bin/brew"
-if [[ ! -x $brew ]]; then
+if [ ! -x $brew ]; then
     echo
     echo "Could not find brew."
     echo "When prompted, please enter password to install brew."
@@ -60,7 +61,7 @@ fi
 
 # requires cabal
 cabal="/usr/local/bin/cabal"
-if [[ ! -x "$cabal" ]]; then
+if [ ! -x "$cabal" ]; then
     echo
     echo "Installing ghc cabal"
     echo 
@@ -74,7 +75,7 @@ fi
 
 # requires pandoc
 pandoc="/usr/local/bin/pandoc"
-if [[ ! -x "$pandoc" ]]; then
+if [ ! -x "$pandoc" ]; then
     echo
     echo "Installing pandoc"
     echo 
@@ -92,17 +93,17 @@ projectdir=$(dirname "$0")
 projectdir=$(python -c "import os; print(os.path.realpath('${projectdir}'))")
 
 downloaddir="${projectdir}/downloads"
-if [[ ! -d "$downloaddir" ]]; then
+if [ ! -d "$downloaddir" ]; then
     mkdir -p "$downloaddir"
 fi
 
 builddir="${projectdir}/build"
-if [[ ! -d "$builddir" ]]; then
+if [ ! -d "$builddir" ]; then
     mkdir -p "$builddir"
 fi
 
 payloaddir="${projectdir}/payload"
-if [[ ! -d "$payloaddir" ]]; then
+if [ ! -d "$payloaddir" ]; then
     mkdir -p "$payloaddir"
 fi
 
@@ -115,14 +116,14 @@ echo
 
 shellcheckdir="$downloaddir/shellcheck"
 
-if [[ -d "$shellcheckdir" ]]; then
+if [ -d "$shellcheckdir" ]; then
     cd "$shellcheckdir" || exit 2
     git fetch
 else
     git clone "https://github.com/koalaman/shellcheck.git"
 fi
 
-if [[ ! -d "$shellcheckdir" ]]; then
+if [ ! -d "$shellcheckdir" ]; then
     echo
     echo "something went wrong cloning or updating shellcheck repo"
     
@@ -140,7 +141,7 @@ cd "$shellcheckdir" || exit 2
 "$cabal" install --bindir="$builddir"
 
 shellcheck="$builddir/shellcheck"
-if [[ ! -x $shellcheck ]]; then
+if [ ! -x "$shellcheck" ]; then
     echo "could not build or find shellcheck binary"
     exit 4
 fi
@@ -172,7 +173,7 @@ pkgbuild --root "$payloaddir" \
          "$pkgpath"
 
 # reveal pkg in Finder
-if [[ -e "$pkgpath" ]]; then
+if [ -e "$pkgpath" ]; then
     open -R "$pkgpath"
 fi
 
