@@ -262,8 +262,8 @@ version=$("$shellcheck" --version | awk '/version:/ {print $2}')
 # base dir is /usr
 mkdir -p "$payloaddir/local/bin"
 cp "$shellcheck" "$payloaddir/local/bin/"
-mkdir -p "$payloaddir/share/man/man1"
-cp "$builddir/shellcheck.1" "$payloaddir/share/man/man1/"
+mkdir -p "$payloaddir/local/share/man/man1"
+cp "$builddir/shellcheck.1" "$payloaddir/local/share/man/man1/"
 
 
 # build the pkg
